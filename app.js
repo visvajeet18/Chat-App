@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         activeMessageChannel = supabaseClient
             .channel('global_messages')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                console.log("INSERT Event payload:", payload);
                 const m = payload.new;
                 const parts = m.chat_id.split('_');
                 if (parts.includes(currentUser.username)) {
@@ -94,7 +95,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const activeId = [currentUser.username, activeChatUser].sort().join('_');
                     if (m.chat_id === activeId) {
                         appendSingleMessage(m);
-                        // Mark as read instantly if currently looking at it
                         if (m.sender !== currentUser.username) {
                             supabaseClient.from('messages').update({ is_read: true }).eq('id', m.id).then(() => {});
                         }
@@ -104,8 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, payload => {
+                console.log("UPDATE Event payload:", payload);
                 const m = payload.new;
-                // m.id is always provided in UPDATE payload
                 const msgEl = messageList.querySelector(`[data-id="${m.id}"]`);
                 if (msgEl) {
                     const statusEl = msgEl.querySelector('.msg-status');
@@ -117,13 +117,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadRecentChats();
             })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
+                console.log("DELETE Event payload:", payload);
                 if (activeChatUser) {
                     const chatId = [currentUser.username, activeChatUser].sort().join('_');
                     supabaseClient.from('messages').select('*').eq('chat_id', chatId).order('timestamp', { ascending: true }).then(({data}) => renderMessages(data || []));
                 }
                 loadRecentChats();
             })
-            .subscribe();
+            .subscribe((status) => {
+                console.log("Realtime Subscription Status:", status);
+            });
     }
 
     function showNotification(m) {
