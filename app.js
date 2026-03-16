@@ -5,13 +5,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // --- SUPABASE CONFIGURATION ---
     const SUPABASE_URL = 'https://razhpsmjilhunqmtagez.supabase.co';
-    // ⚠️ REPLACE THIS WITH YOUR SUPABASE ANON API KEY FOUND IN PROJECT SETTINGS -> API ⚠️
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; 
-
-    if (SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
-        alert("Please insert your Supabase Anon Key in app.js on line 9 to enable database connection!");
-        return;
-    }
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhemhwc21qaWxodW5xbXRhZ2V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2Mzg1MDIsImV4cCI6MjA4OTIxNDUwMn0.ME8LyAO8jr17qmXMty31ZpFH0KOAHOupB3X_Pxdwo0c'; 
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
