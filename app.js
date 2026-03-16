@@ -94,15 +94,34 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const activeId = [currentUser.username, activeChatUser].sort().join('_');
                     if (m.chat_id === activeId) {
                         appendSingleMessage(m);
+                        // Mark as read instantly if currently looking at it
+                        if (m.sender !== currentUser.username) {
+                            supabaseClient.from('messages').update({ is_read: true }).eq('id', m.id).then(() => {});
+                        }
                     } else if (m.sender !== currentUser.username) {
                         showNotification(m);
                     }
                 }
             })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, payload => {
+                const m = payload.new;
+                const activeId = [currentUser.username, activeChatUser].sort().join('_');
+                // Update ticks for sent messages if receiver read them
+                if (m.chat_id === activeId && m.sender === currentUser.username) {
+                    const msgEl = messageList.querySelector(`[data-id="${m.id}"]`);
+                    if (msgEl) {
+                        const statusEl = msgEl.querySelector('.msg-status');
+                        if (statusEl) {
+                            statusEl.innerHTML = '✓✓';
+                            statusEl.style.color = 'var(--neon-magenta)';
+                        }
+                    }
+                }
+                loadRecentChats();
+            })
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
                 if (activeChatUser) {
                     const chatId = [currentUser.username, activeChatUser].sort().join('_');
-                    // simple reload for active chat
                     supabaseClient.from('messages').select('*').eq('chat_id', chatId).order('timestamp', { ascending: true }).then(({data}) => renderMessages(data || []));
                 }
                 loadRecentChats();
@@ -200,8 +219,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const parts = m.chat_id.split('_');
                 const otherUser = parts.find(p => p !== currentUser.username);
                 if (otherUser) {
-                    if (!recentsMap[otherUser] || new Date(m.timestamp) > new Date(recentsMap[otherUser].timestamp)) {
-                        recentsMap[otherUser] = { username: otherUser, lastMessage: m.text || (m.image ? '[Image]' : ''), timestamp: m.timestamp };
+                    if (!recentsMap[otherUser]) {
+                        recentsMap[otherUser] = { username: otherUser, lastMessage: '', timestamp: '', unreadCount: 0 };
+                    }
+                    if (!recentsMap[otherUser].timestamp || new Date(m.timestamp) > new Date(recentsMap[otherUser].timestamp)) {
+                        recentsMap[otherUser].lastMessage = m.text || (m.image ? '[Image]' : '');
+                        recentsMap[otherUser].timestamp = m.timestamp;
+                    }
+                    if (m.sender !== currentUser.username && !m.is_read) {
+                        recentsMap[otherUser].unreadCount++;
                     }
                 }
             });
@@ -215,9 +241,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div class="avatar">${r.username[0].toUpperCase()}</div>
                         <div style="flex: 1; overflow: hidden;">
                             <h5>${r.username}</h5>
-                            <p style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--text-secondary);">${r.lastMessage}</p>
+                            <p style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--text-secondary);">${r.unreadCount > 0 ? `<b style="color:var(--neon-magenta)">[${r.unreadCount}]</b> ` : ''}${r.lastMessage}</p>
                         </div>
-                        <button class="chat-menu-btn" title="Clear chat history" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 5px; font-weight: bold; font-size: 16px;">⋮</button>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+                            ${r.unreadCount > 0 ? `<span class="unread-badge" style="background:var(--neon-magenta); color:white; font-size:11px; font-weight:bold; padding:2px 6px; border-radius:10px; min-width:18px; text-align:center;">${r.unreadCount}</span>` : ''}
+                            <button class="chat-menu-btn" title="Clear" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding:3px; font-weight:bold;">⋮</button>
+                        </div>
                     </div>
                 `).join('');
                 document.querySelectorAll('#recent-chats .user-item').forEach(item => {
@@ -246,9 +275,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const chatId = [currentUser.username, activeChatUser].sort().join('_');
         
+        // Mark existing as read
+        await supabaseClient
+            .from('messages')
+            .update({ is_read: true })
+            .eq('chat_id', chatId)
+            .neq('sender', currentUser.username);
+
         // Fetch History
         const { data: messages } = await supabaseClient.from('messages').select('*').eq('chat_id', chatId).order('timestamp', { ascending: true });
         renderMessages(messages || []);
+        loadRecentChats(); // refresh counts
     }
 
     backToSidebar.addEventListener('click', () => { document.body.classList.remove('chat-active'); activeChatUser = null; if (activeMessageChannel) activeMessageChannel.unsubscribe(); });
@@ -257,15 +294,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const deletedIds = JSON.parse(localStorage.getItem('deletedMessages') || '[]');
         const visible = messages.filter(m => !deletedIds.includes(m.id));
 
-        messageList.innerHTML = visible.map(m => `
-            <div class="message ${m.sender === currentUser.username ? 'sent' : 'received'}" data-id="${m.id}" style="cursor: pointer;">
-                <div class="message-bubble">
-                    ${m.image ? `<img src="${m.image}" class="msg-img">` : ''}
-                    ${m.text ? `<div>${m.text}</div>` : ''}
+        messageList.innerHTML = visible.map(m => {
+            const ticks = m.sender === currentUser.username ? `<span class="msg-status" style="color:${m.is_read ? 'var(--neon-magenta)' : 'var(--text-secondary)'}; font-size:12px; margin-left:3px;">${m.is_read ? '✓✓' : '✓'}</span>` : '';
+            return `
+                <div class="message ${m.sender === currentUser.username ? 'sent' : 'received'}" data-id="${m.id}" style="cursor: pointer;">
+                    <div class="message-bubble">
+                        ${m.image ? `<img src="${m.image}" class="msg-img">` : ''}
+                        ${m.text ? `<div>${m.text}</div>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;">
+                        <span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        ${ticks}
+                    </div>
                 </div>
-                <span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         messageList.scrollTop = messageList.scrollHeight;
     }
 
@@ -435,7 +478,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function appendSingleMessage(m) {
         const div = document.createElement('div'); div.className = `message ${m.sender === currentUser.username ? 'sent' : 'received'}`; div.setAttribute('data-id', m.id); div.style.cursor = 'pointer';
-        div.innerHTML = `<div class="message-bubble">${m.image ? `<img src="${m.image}" class="msg-img">` : ''}${m.text ? `<div>${m.text}</div>` : ''}</div><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>`;
+        
+        const ticks = m.sender === currentUser.username ? `<span class="msg-status" style="color:${m.is_read ? 'var(--neon-magenta)' : 'var(--text-secondary)'}; font-size:12px; margin-left:3px;">${m.is_read ? '✓✓' : '✓'}</span>` : '';
+
+        div.innerHTML = `<div class="message-bubble">${m.image ? `<img src="${m.image}" class="msg-img">` : ''}${m.text ? `<div>${m.text}</div>` : ''}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;"><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>${ticks}</div>`;
         messageList.appendChild(div); const img = div.querySelector('.msg-img');
         if (img) img.onload = () => { messageList.scrollTop = messageList.scrollHeight; }; else messageList.scrollTop = messageList.scrollHeight;
     }

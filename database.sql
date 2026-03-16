@@ -13,6 +13,7 @@ CREATE TABLE messages (
   sender text NOT NULL,
   text text,
   image text, -- Base64 String
+  is_read boolean DEFAULT false, -- Read Status Tick
   timestamp timestamp with time zone DEFAULT now()
 );
 
