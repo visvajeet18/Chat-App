@@ -76,9 +76,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             currentAvatar.textContent = currentUser.username[0].toUpperCase();
             loadRecentChats();
             setupCallChannel();
+            setupGlobalMessageListener();
         } else { 
             authView.classList.add('active'); appView.classList.remove('active'); 
         }
+    }
+
+    function setupGlobalMessageListener() {
+        if (activeMessageChannel) activeMessageChannel.unsubscribe();
+        activeMessageChannel = supabaseClient
+            .channel('global_messages')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                const m = payload.new;
+                const parts = m.chat_id.split('_');
+                if (parts.includes(currentUser.username)) {
+                    loadRecentChats();
+                    const activeId = [currentUser.username, activeChatUser].sort().join('_');
+                    if (m.chat_id === activeId) {
+                        appendSingleMessage(m);
+                    } else if (m.sender !== currentUser.username) {
+                        showNotification(m);
+                    }
+                }
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
+                if (activeChatUser) {
+                    const chatId = [currentUser.username, activeChatUser].sort().join('_');
+                    // simple reload for active chat
+                    supabaseClient.from('messages').select('*').eq('chat_id', chatId).order('timestamp', { ascending: true }).then(({data}) => renderMessages(data || []));
+                }
+                loadRecentChats();
+            })
+            .subscribe();
+    }
+
+    function showNotification(m) {
+        const toast = document.createElement('div');
+        toast.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(30,0,50,0.95); color:white; padding:15px; border-radius:12px; border:1px solid var(--neon-magenta); box-shadow:0 4px 15px rgba(255,0,255,0.2); z-index:10000; cursor:pointer; display:flex; align-items:center; gap:10px; font-family:sans-serif; animation: slideIn 0.3s ease;";
+        toast.innerHTML = `<div class='avatar' style='width:34px; height:34px; font-size:14px; background:var(--neon-magenta); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;'>${m.sender[0].toUpperCase()}</div><div><strong style='color:var(--neon-magenta); font-size:13px;'>${m.sender}</strong><div style='font-size:12px; color:#ccc; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>${m.text || '[Image]'}</div></div>`;
+        toast.addEventListener('click', () => { openChat(m.sender); toast.style.transform = 'translateX(200%)'; setTimeout(() => toast.remove(), 200); });
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.transform = 'translateX(200%)'; setTimeout(() => toast.remove(), 400); }, 4000);
     }
 
     // --- 2. Custom Auth Logic (No Email requirements) ---
@@ -211,19 +249,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Fetch History
         const { data: messages } = await supabaseClient.from('messages').select('*').eq('chat_id', chatId).order('timestamp', { ascending: true });
         renderMessages(messages || []);
-
-        // Setup Realtime Listener
-        if (activeMessageChannel) activeMessageChannel.unsubscribe();
-        activeMessageChannel = supabaseClient
-            .channel(`chat_${chatId}`)
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `chat_id=eq.${chatId}` }, payload => {
-                appendSingleMessage(payload.new);
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, payload => {
-                // simple reload for deletions
-                openChat(activeChatUser);
-            })
-            .subscribe();
     }
 
     backToSidebar.addEventListener('click', () => { document.body.classList.remove('chat-active'); activeChatUser = null; if (activeMessageChannel) activeMessageChannel.unsubscribe(); });

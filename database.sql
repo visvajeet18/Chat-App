@@ -19,6 +19,16 @@ CREATE TABLE messages (
 -- Enable Realtime for Messages
 ALTER TABLE messages REPLICA IDENTITY FULL;
 
+-- Enable Realtime publication for the table safely
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    EXECUTE 'CREATE PUBLICATION supabase_realtime';
+  END IF;
+END $$;
+
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+
 -- Set up Row Level Security (RLS) policies 
 -- (Allowing anyone to read/write for this prototype setup)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
