@@ -1,0 +1,33 @@
+{
+  "users": [
+    {
+      "username": "test",
+      "password": "123",
+      "createdAt": "2026-03-16T05:32:58.165Z"
+    },
+    {
+      "username": "visva",
+      "password": "visva",
+      "createdAt": "2026-03-16T05:40:48.719Z"
+    }
+  ],
+  "messages": {
+    "test_visva": [
+      {
+        "id": "17736418290013juk0btbb",
+        "sender": "test",
+        "text": "hi",
+        "image": null,
+        "timestamp": "2026-03-16T06:17:09.001Z"
+      }
+    ],
+    "testuser_visva": [
+      {
+        "sender": "testuser",
+        "text": "ho",
+        "image": null,
+        "timestamp": "2026-03-16T05:54:37.617Z"
+      }
+    ]
+  }
+}

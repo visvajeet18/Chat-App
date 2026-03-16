@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeonPulse - Hyper-Exclusive Chat</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Auth View -->
+    <div id="auth-view" class="view active">
+        <div class="glow-bg"></div>
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="logo">
+                    <span class="logo-accent">Neon</span>Pulse
+                </div>
+                <p id="auth-subtitle">Welcome Back. Enter your credentials.</p>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active">
+                <div class="input-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" required placeholder="superadmin2026">
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary">Sign In</button>
+                <p class="switch-auth">New here? <span id="to-register">Create Account</span></p>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form">
+                <div class="input-group">
+                    <label for="reg-username">Username</label>
+                    <input type="text" id="reg-username" required placeholder="UserX">
+                </div>
+                <div class="input-group">
+                    <label for="reg-password">Password</label>
+                    <input type="password" id="reg-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary">Register</button>
+                <p class="switch-auth">Already have an account? <span id="to-login">Login</span></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App View -->
+    <div id="app-view" class="view">
+        <div class="dashboard-grid">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <div class="current-user">
+                        <div class="avatar online" id="current-avatar">U</div>
+                        <div class="user-info">
+                            <h4 id="user-display-name">Loading...</h4>
+                            <span class="status-indicator">Online</span>
+                        </div>
+                    </div>
+                    <button id="logout-btn" title="Logout" class="btn-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                    </button>
+                </div>
+
+                <div class="search-wrap">
+                    <div class="search-bar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                        <input type="text" id="search-input" placeholder="Search users in database...">
+                    </div>
+                </div>
+
+                <div class="sidebar-content">
+                    <div class="section-title">Search Results</div>
+                    <div id="search-results" class="user-list">
+                        <!-- Dynamic content -->
+                        <div class="placeholder-text">Type to search for users...</div>
+                    </div>
+
+                    <div class="section-title">Recent Chats</div>
+                    <div id="recent-chats" class="user-list">
+                        <!-- History/Recents -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <!-- Drop Profile Overlay -->
+                <div id="no-chat-selected" class="empty-state active">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <h3>Start a Conversation</h3>
+                    <p>Search for a user in the sidebar to begin messaging.</p>
+                </div>
+
+                <!-- Active Chat Arena -->
+                <div id="active-chat" class="chat-arena">
+                    <div class="chat-header">
+                        <button id="back-to-sidebar" class="btn-icon btn-glass glow-magenta" title="Back to Chats">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                        </button>
+                        <div class="receiver-info">
+                            <div class="avatar" id="receiver-avatar">R</div>
+                            <div>
+                                <h3 id="receiver-username">Loading...</h3>
+                                <span class="receiver-status">Active now</span>
+                            </div>
+                        </div>
+                        <div class="actions" style="display: flex; gap: 8px;">
+                            <!-- Voice Call Button -->
+                            <button id="start-call-btn" class="btn-icon btn-glass glow-magenta" title="Voice Call">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+                            </button>
+                            <!-- Delete Whole Chat Button -->
+                            <button id="delete-chat-btn" class="btn-icon btn-glass glow-magenta" title="Delete Complete Chat" style="color: #ff334b;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Message Feed -->
+                    <div id="message-list" class="message-feed">
+                        <!-- Hydrated dynamically -->
+                    </div>
+
+                    <!-- Input Toolbar -->
+                    <div class="chat-input-toolbar">
+                        <div class="attachments">
+                            <label for="image-upload" class="btn-icon btn-glass" title="Attach Image">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                            </label>
+                            <input type="file" id="image-upload" accept="image/*" hidden>
+                        </div>
+                        <input type="text" id="message-input" placeholder="Type a message...">
+                        <button id="send-btn" class="btn btn-primary glow-magenta">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Image Preview Area -->
+                    <div id="image-preview" class="preview-hidden">
+                        <img id="preview-img" src="" alt="Selected attachment">
+                        <button id="clear-preview">×</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Overlay / Modals -->
+    <div id="call-overlay" class="overlay">
+        <div class="call-card">
+            <div class="pulsing-avatars">
+                <div class="pulse-ring"></div>
+                <div class="pulse-ring"></div>
+                <div class="call-avatar" id="call-avatar-img">C</div>
+            </div>
+            <h2 id="call-user-name">Caller</h2>
+            <p id="call-state-text">Ringing...</p>
+
+            <div class="call-controls">
+                <!-- Incoming triggers -->
+                <button id="accept-call" class="btn-circle btn-success btn-glow">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+                </button>
+                <button id="hangup-call" class="btn-circle btn-danger btn-glow">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7 2 2 0 011.72 2v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012 4.11 2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L7.09 11"/></svg>
+                </button>
+            </div>
+            
+            <!-- Small Audio Visualiser placeholder that starts running during active call -->
+            <div id="call-spectrum" class="spectrum-hidden">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Sound (Mock/Invisible) -->
+    <audio id="audio-ringtone" src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" loop hidden></audio>
+
+    <!-- Message Options Modal -->
+    <div id="msg-options-modal" class="overlay">
+        <div class="call-card" style="background: rgba(20, 10, 30, 0.9); padding: 30px; border-radius: 20px; border: 1px solid var(--glass-border); width: 280px;">
+            <h3 style="margin-bottom: 10px;">Message Options</h3>
+            <p style="margin-bottom: 20px; color: var(--text-secondary); font-size: 13px;">What would you like to do?</p>
+            <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+                <button id="delete-for-me-btn" class="btn" style="background: rgba(255,255,255,0.06); color: white; font-size: 14px;">Delete for Me</button>
+                <button id="delete-for-both-btn" class="btn btn-danger" style="font-size: 14px;">Delete for Everyone</button>
+                <button id="cancel-options-btn" class="btn" style="background: transparent; color: var(--text-muted); font-size: 13px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
