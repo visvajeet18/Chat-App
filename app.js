@@ -296,10 +296,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         messageList.innerHTML = visible.map(m => {
             const ticks = m.sender === currentUser.username ? `<span class="msg-status" style="color:${m.is_read ? 'var(--neon-magenta)' : 'var(--text-secondary)'}; font-size:12px; margin-left:3px;">${m.is_read ? '✓✓' : '✓'}</span>` : '';
+            
+            let attachmentHTML = '';
+            if (m.image) {
+                if (m.image.startsWith('data:audio/')) {
+                    attachmentHTML = `<audio controls src="${m.image}" style="width:200px; margin-top:5px; border-radius:10px;"></audio>`;
+                } else {
+                    attachmentHTML = `<img src="${m.image}" class="msg-img">`;
+                }
+            }
+
             return `
                 <div class="message ${m.sender === currentUser.username ? 'sent' : 'received'}" data-id="${m.id}" style="cursor: pointer;">
                     <div class="message-bubble">
-                        ${m.image ? `<img src="${m.image}" class="msg-img">` : ''}
+                        ${attachmentHTML}
                         ${m.text ? `<div>${m.text}</div>` : ''}
                     </div>
                     <div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;">
@@ -371,6 +381,57 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
     });
+
+    const syncChatBtn = document.getElementById('sync-chat-btn');
+    if (syncChatBtn) {
+        syncChatBtn.addEventListener('click', () => {
+            if (activeChatUser) {
+                syncChatBtn.style.transform = 'rotate(360deg)';
+                syncChatBtn.style.transition = 'transform 0.5s ease';
+                setTimeout(() => { syncChatBtn.style.transform = 'rotate(0deg)'; }, 500);
+                openChat(activeChatUser);
+            }
+        });
+    }
+
+    const voiceNoteBtn = document.getElementById('voice-note-btn');
+    const voiceRecDot = document.getElementById('voice-rec-dot');
+    let voiceRecorder = null;
+    let voiceChunks = [];
+
+    if (voiceNoteBtn) {
+        voiceNoteBtn.addEventListener('mousedown', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                voiceRecorder = new MediaRecorder(stream);
+                voiceChunks = [];
+                
+                voiceRecorder.ondataavailable = (e) => { if (e.data.size > 0) voiceChunks.push(e.data); };
+                voiceRecorder.onstop = async () => {
+                    const audioBlob = new Blob(voiceChunks, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        selectedImageBase64 = reader.result; // Reuse base64 attachment field
+                        sendMsg(); 
+                    };
+                    reader.readAsDataURL(audioBlob);
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                voiceRecorder.start();
+                if (voiceRecDot) voiceRecDot.style.display = 'block';
+            } catch (err) { console.log(err); }
+        });
+
+        voiceNoteBtn.addEventListener('mouseup', () => {
+            if (voiceRecorder && voiceRecorder.state === 'recording') {
+                voiceRecorder.stop();
+                if (voiceRecDot) voiceRecDot.style.display = 'none';
+            }
+        });
+
+        voiceNoteBtn.addEventListener('touchstart', (e) => { e.preventDefault(); voiceNoteBtn.dispatchEvent(new Event('mousedown')); });
+        voiceNoteBtn.addEventListener('touchend', (e) => { e.preventDefault(); voiceNoteBtn.dispatchEvent(new Event('mouseup')); });
+    }
     imageUpload.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { selectedImageBase64 = event.target.result; previewImg.src = selectedImageBase64; imagePreview.classList.remove('preview-hidden'); }; reader.readAsDataURL(file); } });
     function clearImagePreview() { selectedImageBase64 = null; imagePreview.classList.add('preview-hidden'); previewImg.src = ''; }
     clearPreview.addEventListener('click', clearImagePreview);
@@ -507,7 +568,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const ticks = m.sender === currentUser.username ? `<span class="msg-status" style="color:${m.is_read ? 'var(--neon-magenta)' : 'var(--text-secondary)'}; font-size:12px; margin-left:3px;">${m.is_read ? '✓✓' : '✓'}</span>` : '';
 
-        div.innerHTML = `<div class="message-bubble">${m.image ? `<img src="${m.image}" class="msg-img">` : ''}${m.text ? `<div>${m.text}</div>` : ''}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;"><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>${ticks}</div>`;
+        let attachmentHTML = '';
+        if (m.image) {
+            if (m.image.startsWith('data:audio/')) {
+                attachmentHTML = `<audio controls src="${m.image}" style="width:200px; margin-top:5px; border-radius:10px;"></audio>`;
+            } else {
+                attachmentHTML = `<img src="${m.image}" class="msg-img">`;
+            }
+        }
+
+        div.innerHTML = `<div class="message-bubble">${attachmentHTML}${m.text ? `<div>${m.text}</div>` : ''}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;"><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>${ticks}</div>`;
         messageList.appendChild(div); const img = div.querySelector('.msg-img');
         if (img) img.onload = () => { messageList.scrollTop = messageList.scrollHeight; }; else messageList.scrollTop = messageList.scrollHeight;
     }
