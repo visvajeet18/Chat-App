@@ -362,11 +362,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     sendBtn.addEventListener('click', sendMsg);
     messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
+    messageInput.addEventListener('input', () => {
+        if (activeChatUser) {
+            supabaseClient.channel(`calls_${activeChatUser}`).send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: { typer: currentUser.username }
+            });
+        }
+    });
     imageUpload.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => { selectedImageBase64 = event.target.result; previewImg.src = selectedImageBase64; imagePreview.classList.remove('preview-hidden'); }; reader.readAsDataURL(file); } });
     function clearImagePreview() { selectedImageBase64 = null; imagePreview.classList.add('preview-hidden'); previewImg.src = ''; }
     clearPreview.addEventListener('click', clearImagePreview);
 
     // --- 6. WebRTC Call Logic (via Supabase Realtime Broadcast) ---
+    let typingTimeout; // global scoped near state
+
     function setupCallChannel() {
         if (activeCallChannel) activeCallChannel.unsubscribe();
         activeCallChannel = supabaseClient.channel(`calls_${currentUser.username}`)
@@ -378,6 +389,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 activeChatUser = caller;
                 showCallOverlay('incoming', caller);
+            })
+            .on('broadcast', { event: 'typing' }, payload => {
+                const { typer } = payload.payload;
+                if (typer === activeChatUser) {
+                    const statusEl = document.querySelector('.receiver-status');
+                    if (statusEl) {
+                        statusEl.textContent = 'typing...';
+                        statusEl.style.color = 'var(--neon-magenta)';
+                        clearTimeout(typingTimeout);
+                        typingTimeout = setTimeout(() => {
+                            statusEl.textContent = 'Active now';
+                            statusEl.style.color = 'var(--cyan-neon)';
+                        }, 2000);
+                    }
+                }
             })
             .on('broadcast', { event: 'webrtc_signal' }, async payload => {
                 const { signal } = payload.payload;
