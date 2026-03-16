@@ -1,7 +1,8 @@
--- 1. Create Profiles Table (Linked to Supabase Auth)
+-- 1. Create Profiles Table (Custom Simple Auth)
 CREATE TABLE profiles (
-  id uuid REFERENCES auth.users NOT NULL PRIMARY KEY,
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   username text UNIQUE NOT NULL,
+  password text NOT NULL, -- Custom plain text password for simple auth
   created_at timestamp with time zone DEFAULT now()
 );
 

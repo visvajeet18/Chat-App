@@ -68,10 +68,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 1. View Initialization ---
     async function init() {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        
-        if (user) {
-            currentUser = { id: user.id, username: user.user_metadata.username || 'User' };
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
             authView.classList.remove('active'); appView.classList.add('active');
             userDisplayName.textContent = currentUser.username;
             currentAvatar.textContent = currentUser.username[0].toUpperCase();
@@ -82,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // --- 2. Auth Logic ---
+    // --- 2. Custom Auth Logic (No Email requirements) ---
     toRegister.addEventListener('click', () => { loginForm.classList.remove('active'); registerForm.classList.add('active'); });
     toLogin.addEventListener('click', () => { registerForm.classList.remove('active'); loginForm.classList.add('active'); });
 
@@ -91,15 +90,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         const username = document.getElementById('reg-username').value.trim();
         const password = document.getElementById('reg-password').value.trim();
         try {
-            const { data, error } = await supabaseClient.auth.signUp({
-                email: `${username.toLowerCase()}@chat.com`,
-                password: password,
-                options: { data: { username } }
-            });
+            // Check if username exists
+            const { data: existing } = await supabaseClient.from('profiles').select('*').eq('username', username);
+            if (existing && existing.length > 0) throw new Error("Username already taken");
+
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .insert([{ username, password }])
+                .select();
             if (error) throw error;
-            // Insert into profiles
-            await supabaseClient.from('profiles').insert([{ id: data.user.id, username }]);
-            alert("Registered successfully! Logging in...");
+
+            currentUser = { id: data[0].id, username: data[0].username };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            alert("Registered successfully!");
             init();
         } catch (err) { alert(err.message); }
     });
@@ -109,17 +112,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const username = document.getElementById('login-username').value.trim();
         const password = document.getElementById('login-password').value.trim();
         try {
-            const { error } = await supabaseClient.auth.signInWithPassword({
-                email: `${username.toLowerCase()}@chat.com`,
-                password: password
-            });
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('username', username)
+                .eq('password', password);
             if (error) throw error;
+            if (!data || data.length === 0) throw new Error("Invalid username or password");
+
+            currentUser = { id: data[0].id, username: data[0].username };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             init();
         } catch (err) { alert(err.message); }
     });
 
-    logoutBtn.addEventListener('click', async () => { 
-        await supabaseClient.auth.signOut();
+    logoutBtn.addEventListener('click', () => { 
+        localStorage.removeItem('currentUser');
         currentUser = null; activeChatUser = null; 
         activeChat.classList.remove('active'); noChatSelected.classList.add('active'); 
         document.body.classList.remove('chat-active'); 
