@@ -105,16 +105,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, payload => {
                 const m = payload.new;
-                const activeId = [currentUser.username, activeChatUser].sort().join('_');
-                // Update ticks for sent messages if receiver read them
-                if (m.chat_id === activeId && m.sender === currentUser.username) {
-                    const msgEl = messageList.querySelector(`[data-id="${m.id}"]`);
-                    if (msgEl) {
-                        const statusEl = msgEl.querySelector('.msg-status');
-                        if (statusEl) {
-                            statusEl.innerHTML = '✓✓';
-                            statusEl.style.color = 'var(--neon-magenta)';
-                        }
+                // m.id is always provided in UPDATE payload
+                const msgEl = messageList.querySelector(`[data-id="${m.id}"]`);
+                if (msgEl) {
+                    const statusEl = msgEl.querySelector('.msg-status');
+                    if (statusEl && m.is_read) {
+                        statusEl.innerHTML = '✓✓';
+                        statusEl.style.color = 'var(--neon-magenta)';
                     }
                 }
                 loadRecentChats();
