@@ -1,16 +1,23 @@
 const fs = require('fs');
 const path = require('path');
 
-const appJsPath = path.join(__dirname, 'app.js');
-let content = fs.readFileSync(appJsPath, 'utf-8');
+const publicDir = path.join(__dirname, 'public');
 
-const key = process.env.SUPABASE_ANON_KEY;
+console.log('Starting build process...');
 
-if (key) {
-    // Replace placeholder with env var
-    content = content.replace('YOUR_SUPABASE_ANON_KEY', key);
-    fs.writeFileSync(appJsPath, content);
-    console.log('Build complete: Injected SUPABASE_ANON_KEY from environment.');
-} else {
-    console.log('No SUPABASE_ANON_KEY found in environment variables. Skipping injection.');
+// 1. Create public directory if it does not exist
+if (!fs.existsSync(publicDir)){
+    fs.mkdirSync(publicDir);
+    console.log('Created public/ directory');
 }
+
+// 2. Copy index.html to public/
+fs.copyFileSync(path.join(__dirname, 'index.html'), path.join(publicDir, 'index.html'));
+
+// 3. Copy app.js to public/
+fs.copyFileSync(path.join(__dirname, 'app.js'), path.join(publicDir, 'app.js'));
+
+// 4. Copy styles.css to public/
+fs.copyFileSync(path.join(__dirname, 'styles.css'), path.join(publicDir, 'styles.css'));
+
+console.log('Build complete: All files copied to public/ folder for Vercel deployment.');
