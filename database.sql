@@ -3,6 +3,7 @@ CREATE TABLE profiles (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   username text UNIQUE NOT NULL,
   password text NOT NULL, -- Custom plain text password for simple auth
+  avatar_url text, -- For storing profile photo paths
   created_at timestamp with time zone DEFAULT now()
 );
 
@@ -12,10 +13,22 @@ CREATE TABLE messages (
   chat_id text NOT NULL,
   sender text NOT NULL,
   text text,
-  image text, -- Base64 String
+  image text, -- Kept for legacy base64 if needed, but we recommend using file_url
+  file_url text, -- Supabase Storage URL for attachments (image/video/doc)
+  file_type text, -- Mime type: 'image', 'video', 'document', etc.
   is_read boolean DEFAULT false, -- Read Status Tick
+  parent_id uuid REFERENCES messages(id) ON DELETE SET NULL, -- For message replies
+  reactions jsonb DEFAULT '[]'::jsonb, -- Array of objects like {emoji: '🚀', users: ['alice']}
+  is_edited boolean DEFAULT false,
+  last_edited_at timestamp with time zone,
   timestamp timestamp with time zone DEFAULT now()
 );
+
+-- 3. Storage Setup (Important Instructions for User)
+-- Please go to your Supabase Dashboard -> Storage -> Create two public buckets: 
+-- 1. "user-avatars"
+-- 2. "chat-attachments"
+-- Enable public policies for insert/select on these buckets.
 
 -- Enable Realtime for Messages
 ALTER TABLE messages REPLICA IDENTITY FULL;
