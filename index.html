@@ -62,10 +62,10 @@
                 <div class="sidebar-header">
                     <div class="current-user" style="position: relative;">
                         <input type="file" id="avatar-upload" accept="image/*" hidden>
-                        <div class="avatar online" id="current-avatar" style="cursor: pointer;" title="Change Profile Photo">U</div>
+                        <div class="avatar" id="current-avatar" style="cursor: pointer;" title="Change Profile Photo">U</div>
                         <div class="user-info">
                             <h4 id="user-display-name">Loading...</h4>
-                            <span class="status-indicator">Online</span>
+                            <span class="status-indicator">Connecting...</span>
                         </div>
                     </div>
                     <div style="display:flex; gap:8px;">
@@ -118,7 +118,7 @@
                             <div class="avatar" id="receiver-avatar">R</div>
                             <div>
                                 <h3 id="receiver-username">Loading...</h3>
-                                <span class="receiver-status">Active now</span>
+                                <span class="receiver-status">...</span>
                             </div>
                         </div>
                         <div class="actions" style="display: flex; gap: 8px;">
@@ -167,10 +167,6 @@
                                 <span id="voice-rec-dot" style="display:none; position:absolute; top:5px; right:5px; width:8px; height:8px; background:#ff334b; border-radius:50%; box-shadow:0 0 8px #ff334b; animation: pulse 1s infinite;"></span>
                             </button>
 
-                            <!-- Giphy Button -->
-                            <button id="giphy-btn" class="btn-icon btn-glass" title="Send a GIF">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            </button>
                         </div>
                         <input type="text" id="message-input" placeholder="Type a message...">
                         <button id="send-btn" class="btn btn-primary glow-magenta">
@@ -181,9 +177,15 @@
                     <!-- Image Preview Area -->
                     <div id="image-preview" class="preview-hidden">
                         <img id="preview-img" src="" alt="Selected attachment">
-                        <button id="clear-preview">×</button>
                     </div>
                 </div>
+            </div>
+        </div>
+        <!-- Drop Overlay -->
+        <div id="drop-overlay" class="drop-target-overlay">
+            <div class="drop-msg">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                <h3>Drop files to send</h3>
             </div>
         </div>
     </div>

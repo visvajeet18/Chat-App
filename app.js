@@ -77,7 +77,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const replyPreviewBar = document.getElementById('reply-preview-bar');
     const replyPreviewContent = document.getElementById('reply-preview-content');
     const cancelReplyBtn = document.getElementById('cancel-reply-btn');
-    const giphyBtn = document.getElementById('giphy-btn');
     const reactionPicker = document.getElementById('reaction-picker-modal');
 
     // --- 1. View Initialization ---
@@ -129,6 +128,86 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const debouncedLoadRecentChats = debounce(() => loadRecentChats(), 300);
+    
+    function formatMessage(text) {
+        if (!text) return "";
+        // Escape HTML
+        let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        
+        // Bold: **text**
+        html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        // Italic: *text*
+        html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
+        // Inline Code: `text`
+        html = html.replace(/`(.*?)`/g, "<code class='inline-code'>$1</code>");
+        // Newlines
+        html = html.replace(/\n/g, "<br>");
+        
+        return html;
+    }
+
+    function triggerEmojiBurst(el, emoji) {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        for (let i = 0; i < 8; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.textContent = emoji;
+            
+            const angle = (i / 8) * Math.PI * 2;
+            const dist = 50 + Math.random() * 50;
+            const tx = Math.cos(angle) * dist;
+            const ty = Math.sin(angle) * dist;
+            
+            particle.style.setProperty('--tx', `${tx}px`);
+            particle.style.setProperty('--ty', `${ty}px`);
+            particle.style.left = `${centerX}px`;
+            particle.style.top = `${centerY}px`;
+            
+            document.body.appendChild(particle);
+            setTimeout(() => particle.remove(), 800);
+        }
+    }
+
+    const dropOverlay = document.getElementById('drop-overlay');
+    const chatContainer = document.querySelector('.chat-container');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        chatContainer.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        }, false);
+    });
+
+    chatContainer.addEventListener('dragenter', () => dropOverlay.classList.add('active'));
+    chatContainer.addEventListener('dragover', () => dropOverlay.classList.add('active'));
+    chatContainer.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget === null || !dropOverlay.contains(e.relatedTarget)) {
+            dropOverlay.classList.remove('active');
+        }
+    });
+
+    chatContainer.addEventListener('drop', (e) => {
+        dropOverlay.classList.remove('active');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            selectedFileObj = files[0];
+            // If it's an image, show preview, else just send
+            if (selectedFileObj.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    selectedImageBase64 = event.target.result;
+                    previewImg.src = event.target.result;
+                    imagePreview.classList.remove('preview-hidden');
+                };
+                reader.readAsDataURL(selectedFileObj);
+            } else {
+                sendMsg();
+            }
+        }
+    });
 
     function setupGlobalMessageListener() {
         if (activeMessageChannel) activeMessageChannel.unsubscribe();
@@ -173,6 +252,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const hasContentChange = m.is_edited || (newReactions !== oldReactions);
                         
                         if (hasContentChange) {
+                            if (newReactions !== oldReactions) {
+                                // Trigger burst for new reactions
+                                const nR = JSON.parse(newReactions);
+                                const oR = JSON.parse(oldReactions);
+                                if (nR.length > oR.length) {
+                                    const latest = nR[nR.length - 1];
+                                    const msgEl = messageList.querySelector(`[data-id="${m.id}"]`);
+                                    if (msgEl) triggerEmojiBurst(msgEl, latest.emoji);
+                                }
+                            }
                             // Only perform full openChat if visual content actually changed
                             openChat(activeChatUser);
                         }
@@ -223,7 +312,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateOnlineStatusUI(presenceState) {
         const onlineUsers = Object.keys(presenceState);
-        // Update Sidebar
+        
+        // Update Sidebar (Recents/Search)
         document.querySelectorAll('#recent-chats .user-item, #search-results .user-item').forEach(item => {
             const username = item.getAttribute('data-username');
             const avatar = item.querySelector('.avatar');
@@ -233,7 +323,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 avatar.classList.remove('online');
             }
         });
-        // Update Header if active
+
+        // Update "Me" status (Sidebar header)
+        const myAvatar = document.getElementById('current-avatar');
+        const myStatusEl = document.querySelector('.status-indicator');
+        if (onlineUsers.includes(currentUser.username)) {
+            myAvatar.classList.add('online');
+            myStatusEl.textContent = 'Online';
+            myStatusEl.style.color = 'var(--cyan-neon)';
+        } else {
+            myAvatar.classList.remove('online');
+            myStatusEl.textContent = 'Offline';
+            myStatusEl.style.color = 'var(--text-muted)';
+        }
+
+        // Update Header if active partner is online
         if (activeChatUser) {
             const statusEl = document.querySelector('.receiver-status');
             if (onlineUsers.includes(activeChatUser)) {
@@ -404,6 +508,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- 4. Chat Arena ---
+
     async function openChat(username) {
         if (!username) return;
         activeChatUser = username; noChatSelected.classList.remove('active'); activeChat.classList.add('active'); document.body.classList.add('chat-active');
@@ -489,7 +594,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="message-bubble">
                         ${parentHTML}
                         ${attachmentHTML}
-                        ${m.text ? `<div class="msg-text">${m.text}</div>` : ''}
+                        ${m.text ? `<div class="msg-text">${formatMessage(m.text)}</div>` : ''}
                         ${reactionsHTML}
                     </div>
                     <div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;">
@@ -605,8 +710,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 reactions.push({ emoji, users: [currentUser.username] });
             }
             
+            
             const { error: updateError } = await supabaseClient.from('messages').update({ reactions }).eq('id', msgId);
             if (updateError) throw updateError;
+
+            // Trigger local burst if we added a reaction
+            if (existingIdx === -1 || !reactions[existingIdx]?.users.includes(currentUser.username)) {
+               const msgEl = messageList.querySelector(`[data-id="${msgId}"]`);
+               if (msgEl) triggerEmojiBurst(msgEl, emoji);
+            }
         } catch (err) {
             console.error("Reaction failed:", err);
             alert("Reaction Error: " + err.message);
@@ -807,53 +919,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function clearImagePreview() { selectedFileObj = null; selectedImageBase64 = null; imagePreview.classList.add('preview-hidden'); previewImg.src = ''; imageUpload.value = ''; }
     clearPreview.addEventListener('click', clearImagePreview);
 
-    // --- Giphy Integration ---
-    giphyBtn.addEventListener('click', () => {
-        const query = prompt("Search Giphy:");
-        if (query) searchGiphy(query);
-    });
-
-    async function searchGiphy(query) {
-        const GIPHY_API_KEY = 'dc6zaTOxFJmzC'; // Public Beta Key
-        try {
-            const resp = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=10`);
-            const { data } = await resp.json();
-            if (data.length > 0) {
-                showGiphyPicker(data);
-            } else {
-                alert("No GIFs found.");
-            }
-        } catch (e) { console.error(e); }
-    }
-
-    function showGiphyPicker(gifs) {
-        const picker = document.createElement('div');
-        picker.className = 'overlay active';
-        picker.innerHTML = `
-            <div class="call-card" style="background:var(--bg-panel); padding:20px; border-radius:20px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;">
-                <h3 style="margin-bottom:15px;">Select a GIF</h3>
-                <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;">
-                    ${gifs.map(g => `<img src="${g.images.fixed_height.url}" data-url="${g.images.fixed_height.url}" style="width:100%; border-radius:8px; cursor:pointer;" class="giphy-item">`).join('')}
-                </div>
-                <button id="close-giphy" class="btn" style="margin-top:20px; width:100%;">Cancel</button>
-            </div>
-        `;
-        document.body.appendChild(picker);
-        picker.querySelectorAll('.giphy-item').forEach(img => {
-            img.onclick = async () => {
-                const url = img.getAttribute('data-url');
-                const chatId = [currentUser.username, activeChatUser].sort().join('_');
-                await supabaseClient.from('messages').insert([{ 
-                    chat_id: chatId, 
-                    sender: currentUser.username, 
-                    file_url: url,
-                    file_type: 'image'
-                }]);
-                picker.remove();
-            };
-        });
-        picker.querySelector('#close-giphy').onclick = () => picker.remove();
-    }
 
     // Profile Avatar Upload
     const avatarUpload = document.getElementById('avatar-upload');
@@ -1055,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        div.innerHTML = `<div class="message-bubble">${parentHTML}${attachmentHTML}${m.text ? `<div class="msg-text">${m.text}</div>` : ''}${reactionsHTML}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;"><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>${ticks}${editedTag}</div>`;
+        div.innerHTML = `<div class="message-bubble">${parentHTML}${attachmentHTML}${m.text ? `<div class="msg-text">${formatMessage(m.text)}</div>` : ''}${reactionsHTML}</div><div style="display:flex; align-items:center; justify-content:flex-end; gap:2px;"><span class="msg-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>${ticks}${editedTag}</div>`;
         messageList.appendChild(div); const img = div.querySelector('.msg-img');
         if (img) img.onload = () => { messageList.scrollTop = messageList.scrollHeight; }; else messageList.scrollTop = messageList.scrollHeight;
     }

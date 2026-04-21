@@ -65,6 +65,19 @@ body {
     to { opacity: 1; transform: scale(1); }
 }
 
+@keyframes emojiBurst {
+    0% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5); opacity: 0; }
+}
+
+.particle {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10001;
+    font-size: 24px;
+    animation: emojiBurst 0.8s ease-out forwards;
+}
+
 /* =========================================
    Scrollbars
    ========================================= */
@@ -606,6 +619,30 @@ input:focus {
     box-shadow: 0 4px 12px rgba(255, 0, 122, 0.2);
 }
 
+.message-bubble strong {
+    font-weight: 800;
+    color: inherit;
+}
+
+.message-bubble em {
+    font-style: italic;
+    opacity: 0.9;
+}
+
+.inline-code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Space Grotesk', monospace;
+    font-size: 0.9em;
+    color: var(--cyan-neon);
+}
+
+.message.sent .inline-code {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
 .message.received {
     align-self: flex-start;
 }
@@ -795,6 +832,41 @@ input:focus {
    4. Modals and Overlays (Call screen)
    ========================================= */
 
+/* Drag & Drop Overlay */
+.drop-target-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255, 0, 122, 0.1);
+    backdrop-filter: blur(10px);
+    border: 3px dashed var(--magenta-neon);
+    z-index: 50;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.drop-target-overlay.active {
+    display: flex;
+}
+
+.drop-msg {
+    text-align: center;
+    color: var(--magenta-neon);
+    text-shadow: 0 0 10px var(--magenta-glow);
+}
+
+.drop-msg svg {
+    margin-bottom: 15px;
+    animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
 .overlay {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
@@ -954,19 +1026,35 @@ input:focus {
 @media (max-width: 480px) {
   .chat-container { width: 100%; height: 100dvh; }
   .chat-input-toolbar { 
-    padding: 10px 12px; 
-    gap: 8px; 
-    padding-bottom: max(10px, env(safe-area-inset-bottom)); /* Support iOS notch/home bar */
+    padding: 12px 15px; 
+    gap: 10px; 
+    padding-bottom: max(15px, env(safe-area-inset-bottom));
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
   }
-  .chat-input-toolbar button { width: 36px; height: 36px; }
-  #message-input { min-width: 0; padding: 10px 12px; font-size: 16px; width: 100%; } /* font-size 16px prevents iOS zoom */
-  .message-feed { padding: 12px; }
+  .chat-input-toolbar button { width: 38px; height: 38px; }
+  #message-input { min-width: 0; padding: 12px 15px; font-size: 16px; width: 100%; }
+  .message-feed { padding: 15px; gap: 12px; }
   .status-indicator { display: none; }
-  .chat-header { padding: 10px 12px; }
-  .receiver-info { flex-direction: row; align-items: center; justify-content: center; transform: translateX(-15px); } /* compensating for back button width slightly */
-  #receiver-username { font-size: 14px; }
-  .receiver-status { font-size: 9px; }
-  .actions { gap: 4px; }
-  .actions .btn-icon { width: 34px; height: 34px; padding: 0; }
+  .chat-header { 
+    padding: 10px 15px; 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .receiver-info { 
+    flex: 1;
+    flex-direction: row; 
+    align-items: center; 
+    justify-content: flex-start;
+    gap: 10px;
+    transform: none; /* Removed hardcoded offset */
+    overflow: hidden;
+  }
+  #receiver-username { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .receiver-status { font-size: 10px; }
+  .actions { gap: 6px; }
+  .actions .btn-icon { width: 36px; height: 36px; padding: 0; }
   .avatar.online::after { display: none; }
 }
